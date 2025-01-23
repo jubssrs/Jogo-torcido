@@ -1,0 +1,227 @@
+#include <iostream>
+#include <fstream>
+#include <cstdlib>
+#include <ctime>
+#include <cstring>
+#include <vector>
+#include <conio.h>
+#include <windows.h>
+
+using namespace std;
+
+// Célula da Fila
+struct TCelula {
+    char* palavra;
+    TCelula* proximo;
+};
+
+// Tipo Fila
+struct TFila {
+    TCelula* frente;
+    TCelula* tras;
+};
+
+// Funções para manipulação da fila
+void inicializarFila(TFila*& fila) {
+    fila = new TFila;
+    fila->frente = new TCelula;
+    fila->frente->proximo = nullptr;
+    fila->tras = fila->frente;
+}
+
+void enfileirar(TFila*& fila, const char* palavra) {
+    TCelula* novaCelula = new TCelula;
+    novaCelula->palavra = new char[strlen(palavra) + 1];
+    strcpy(novaCelula->palavra, palavra);
+    novaCelula->proximo = nullptr;
+
+    fila->tras->proximo = novaCelula;
+    fila->tras = novaCelula;
+}
+
+char* desenfileirar(TFila*& fila) {
+    if (fila->frente == fila->tras) return nullptr;
+
+    TCelula* celulaRemovida = fila->frente->proximo;
+    char* palavra = new char[strlen(celulaRemovida->palavra) + 1];
+    strcpy(palavra, celulaRemovida->palavra);
+
+    fila->frente->proximo = celulaRemovida->proximo;
+    if (fila->tras == celulaRemovida) {
+        fila->tras = fila->frente;
+    }
+
+    delete[] celulaRemovida->palavra; // Libera memória
+    delete celulaRemovida; // Libera a célula removida
+    return palavra;
+}
+
+// Classe principal do jogo
+class JogoTorcido {
+private:
+    TFila* filaPalavras;
+    char palavraOriginal[50];
+    char palavraEmbaralhada[50];
+    int pontuacao;
+    int tempoRestante;
+    vector<string> palavrasFormadas; // Para armazenar as palavras já formadas
+
+public:
+    JogoTorcido() {
+        srand(static_cast<unsigned int>(time(0)));
+        inicializarFila(filaPalavras);
+        pontuacao = 0;
+        tempoRestante = 60; // Tempo padrão
+        carregarDicionario("portugues.txt"); // Carrega dicionário padrão
+        strcpy(palavraOriginal, desenfileirar(filaPalavras)); // Seleciona uma palavra aleatória
+        embaralharPalavra(); // Embaralha a palavra original
+    }
+
+    void menu() {
+        while (true) {
+            system("cls");
+            cout << "=-= MENU DO JOGO TORCIDO =-=\n";
+            cout << "1. Jogar\n";
+            cout << "2. Ajuda\n";
+            cout << "3. Sair\n";
+            
+            char opcao = getch();
+            switch (opcao) {
+                case '1':
+                    escolhaDicionario();
+                    break;
+                case '2':
+                    telaAjuda();
+                    break;
+                case '3':
+                    exit(0);
+            }
+        }
+    }
+
+    void telaAjuda() {
+        system("cls");
+        cout << "=-= AJUDA - JOGO TORCIDO =-=\n\n";
+        cout << "Objetivo: Encontrar a palavra que deu origem ao arranjo de letras.\n";
+        cout << "Como jogar: Utilize as teclas alfabéticas para digitar a palavra.\n";
+        cout << "Para submetê-la aperte ENTER.\n";
+        cout << "Pressione qualquer tecla para voltar ao menu...\n";
+        getch();
+    }
+
+    void escolhaDicionario() {
+        system("cls");
+        cout << "Escolha o dicionário:\n";
+        cout << "1. Português\n";
+        cout << "2. Inglês\n";
+        
+        char opcao = getch();
+        if (opcao == '1') {
+            carregarDicionario("portugues.txt");
+        } else if (opcao == '2') {
+            carregarDicionario("ingles.txt");
+        }
+        
+        iniciarJogo();
+    }
+
+    void carregarDicionario(const string& nomeArquivo) {
+        ifstream arquivo(nomeArquivo);
+        string palavra;
+
+        while (getline(arquivo, palavra)) {
+            enfileirar(filaPalavras, palavra.c_str());
+        }
+        
+        // Seleciona uma palavra aleatória da fila
+        strcpy(palavraOriginal, desenfileirar(filaPalavras));
+        
+        // Embaralhar a palavra original
+        embaralharPalavra();
+        
+        // Limpar palavras formadas
+        palavrasFormadas.clear();
+    }
+
+    void embaralharPalavra() {
+        strcpy(palavraEmbaralhada, palavraOriginal);
+        int tamanho = strlen(palavraEmbaralhada);
+
+        for (int i = 0; i < tamanho; i++) {
+            int j = rand() % tamanho;
+            swap(palavraEmbaralhada[i], palavraEmbaralhada[j]);
+        }
+    }
+
+    void iniciarJogo() {
+        char palavraDigitada[50] = {0};
+        
+        while (tempoRestante > 0) {
+            system("cls");
+            desenharTelaJogo();
+
+            // Coletar entrada do jogador
+            if (kbhit()) { 
+                char tecla = getch();
+
+                if (tecla == '\r') { // Enter
+                    if (strlen(palavraDigitada) >= 3) {
+                        if (strcmp(palavraDigitada, palavraOriginal) == 0) {
+                            pontuacao += 100; 
+                            cout << "Você acertou! Pontuação: " << pontuacao << endl;
+                            Sleep(2000); // Espera para o jogador ler a mensagem
+                            break; // Sai do loop se acertar
+                        } else if (find(palavrasFormadas.begin(), palavrasFormadas.end(), string(palavraDigitada)) == palavrasFormadas.end()) {
+                            palavrasFormadas.push_back(palavraDigitada); // Adiciona à lista de palavras formadas
+                            pontuacao += 10; // Incrementa pontuação por cada nova palavra válida
+                            cout << "Palavra formada! Pontuação: " << pontuacao << endl;
+                        } else {
+                            cout << "Você já formou essa palavra!" << endl;
+                        }
+                    } else {
+                        cout << "A palavra deve ter pelo menos 3 letras!" << endl;
+                    }
+                    memset(palavraDigitada, 0, sizeof(palavraDigitada)); // Limpa a entrada do jogador
+                } else if ((tecla >= 'A' && tecla <= 'Z') || (tecla >= 'a' && tecla <= 'z')) {
+                    size_t len = strlen(palavraDigitada);
+                    if (len < sizeof(palavraDigitada) - 1) { // Verifica se não ultrapassa o limite
+                        palavraDigitada[len] = toupper(tecla);
+                        palavraDigitada[len + 1] = '\0'; // Adiciona o terminador nulo
+                    }
+                } else if (tecla == '\b') { // Backspace
+                    size_t len = strlen(palavraDigitada);
+                    if (len > 0) {
+                        palavraDigitada[len - 1] = '\0'; // Remove o último caractere
+                    }
+                }
+            }
+
+            Sleep(1000); // Simular um segundo passando
+            tempoRestante--;
+        }
+
+        if (tempoRestante <= 0) {
+            system("cls");
+            cout << "Tempo esgotado! A palavra era: " << palavraOriginal << endl;
+            getch(); // Espera o jogador pressionar uma tecla antes de voltar ao menu
+        }
+        
+        menu(); // Volta ao menu após o jogo
+    }
+
+    void desenharTelaJogo() {
+        cout << "Palavra embaralhada: " << palavraEmbaralhada << endl;
+        cout << "Pontuação: " << pontuacao << endl;
+        cout << "Tempo restante: " << tempoRestante << endl;
+
+		cout.flush(); 
+		cout<<endl; 
+	}
+};
+
+int main() {
+	setlocale(LC_ALL,"portuguese");
+	JogoTorcido jogo;
+	jogo.menu();
+	return 0;
+}
