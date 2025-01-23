@@ -1,0 +1,477 @@
+#include <iostream>
+#include <fstream>
+#include <cstdlib>
+#include <ctime>
+#include <cstring>
+#include <vector>
+#include <conio.h>
+#include <windows.h>
+#include "gconio.h"
+
+using namespace std;
+
+// Célula da Fila
+struct TCelula {
+    char* palavra;
+    TCelula* proximo;
+};
+
+// Tipo Fila
+struct TFila {
+    TCelula* frente;
+    TCelula* tras;
+};
+
+int MAX_COLUNAS = 90;
+int MAX_LINHAS = 25;
+int COR_FUNDO = BLACK;
+int COR_LETRA = GREEN;
+
+class JogoTorcido {
+private:
+    char palavraOriginal[50];
+    char palavraEmbaralhada[50];
+    TFila* filaPalavras;
+    int pontuacao;
+    int tempoRestante;
+    char palavraDigitada[50];
+    int comprimentoPalavraDigitada;
+    vector<string> dicionario;
+
+    // Inicialização da Fila
+    void inicializarFila(TFila* &fila) {
+        fila = new TFila;
+        fila->frente = new TCelula;
+        fila->frente->proximo = nullptr;
+        fila->tras = fila->frente;
+    }
+
+    void enfileirar(TFila* &fila, const char* palavra) {
+        TCelula* novaCelula = new TCelula;
+        novaCelula->palavra = new char[strlen(palavra) + 1];
+        strcpy(novaCelula->palavra, palavra);
+        novaCelula->proximo = nullptr;
+
+        fila->tras->proximo = novaCelula;
+        fila->tras = novaCelula;
+    }
+
+    char* desenfileirar(TFila* &fila) {
+        if (fila->frente == fila->tras) return nullptr;
+
+        TCelula* celulaRemovida = fila->frente->proximo;
+        char* palavra = new char[strlen(celulaRemovida->palavra) + 1];
+        strcpy(palavra, celulaRemovida->palavra);
+
+        fila->frente->proximo = celulaRemovida->proximo;
+        if (fila->tras == celulaRemovida) {
+            fila->tras = fila->frente;
+        }
+
+        delete celulaRemovida;
+        return palavra;
+    }
+
+    void carregarDicionario(const string& nomeArquivo) {
+        ifstream arquivo(nomeArquivo);
+        string palavra;
+
+        dicionario.clear();
+        
+        if (arquivo.is_open()) {
+            while (getline(arquivo, palavra)) {
+                dicionario.push_back(palavra);
+            }
+            arquivo.close();
+        } else {
+            cerr << "Erro ao abrir arquivo: " << nomeArquivo << endl;
+        }
+    }
+
+    void embaralharPalavra() {
+        strcpy(palavraEmbaralhada, palavraOriginal);
+        int tamanho = strlen(palavraEmbaralhada);
+
+        for (int i = 0; i < tamanho; i++) {
+            int j = rand() % tamanho;
+            swap(palavraEmbaralhada[i], palavraEmbaralhada[j]);
+        }
+    }
+
+    void selecionarPalavraAleatoria(int idioma) {
+        carregarDicionario(idioma == 0 ? "portugues.txt" : "ingles.txt");
+
+        if (!dicionario.empty()) {
+            int indice = rand() % dicionario.size();
+            strcpy(palavraOriginal, dicionario[indice].c_str());
+        }
+    }
+
+    void NomeDoJogo() {
+        textbackground(COR_FUNDO);
+        textcolor(COR_LETRA);
+
+        for (int linha = 0; linha < 70; linha++) {
+            for (int coluna = 0; coluna < 235; coluna++)
+                printf(" ");
+            printf("\n");
+        }
+
+        // Título do jogo com estilo ASCII art
+        gotoxy(70, 17);
+        printf("          ___         ______         _______          ______                ");
+        gotoxy(70, 18);
+        printf("         |\"  |       /    \" \\       /\" _   \"|        /    \" \\               ");
+        gotoxy(70, 19);
+        printf("         ||  |      // ____  \\     (: ( \\___)       // ____  \\              ");
+        gotoxy(70, 20);
+        printf("         |:  |     /  /    ) :)     \\/ \\           /  /    ) :)             ");
+        gotoxy(70, 21);
+        printf("      ___|  /     (: (____/ //      //  \\ ___     (: (____/ //              ");
+        gotoxy(70, 22);
+        printf("     /  :|_/ )     \\        /      (:   _(  _|     \\        /               ");
+        gotoxy(70, 23);
+        printf("    (_______/       \\\"_____/        \\_______)       \\\"_____/                ");
+        
+        Sleep(2800);
+        
+// Animação de personagem
+        for (int coluna = 50; coluna >= 12; coluna--) {
+            gotoxy(12, 13);
+            if (coluna % 2 == 0) {
+                printf("                                                             ");
+                gotoxy(coluna, 13);
+                printf("  O ");
+                gotoxy(coluna, 14);
+                printf(" /|\\ ");
+                gotoxy(coluna, 15);
+                printf("  |");
+                Sleep(50);
+            } else {
+                printf("                                                             ");
+                gotoxy(coluna, 13);
+                printf("  O ");
+                gotoxy(coluna, 14);
+                printf("  | ");
+                gotoxy(coluna, 15);
+                printf(" / \\ ");
+                Sleep(50);
+            }
+            clrscr();
+        }
+    }
+
+    void desenharTelaMenu() {
+		clrscr();
+		textcolor(GREEN);
+		gotoxy(50,10);
+		printf("=-= JOGO TORCIDO =-=\n");
+		
+		gotoxy(50,12);
+		printf("1. Jogar\n");
+		gotoxy(50,13);
+		printf("2. Ajuda\n");
+		gotoxy(50,14);
+		printf("3. Sair\n");
+		
+		gotoxy(50,16);
+		printf("Escolha uma opção: ");
+	}
+
+	void desenharTelaAjuda() {
+		clrscr();
+		textcolor(GREEN);
+		gotoxy(40,5);
+		printf("=-= AJUDA - JOGO TORCIDO =-=\n\n");
+		
+		gotoxy(30,7);
+		printf("Objetivo do Jogo:\n");
+		gotoxy(30,8);
+		printf("- Descubra a palavra original a partir das letras embaralhadas\n");
+		gotoxy(30,9);
+		printf("- Forme o maior número de palavras possível\n");
+		gotoxy(30,10);
+		printf("- Cada palavra deve ter no mínimo 3 letras\n\n");
+		
+		gotoxy(30,12);
+		printf("Como Jogar:\n");
+		gotoxy(30,13);
+		printf("- Use as teclas do alfabeto para formar palavras\n");
+		gotoxy(30,14);
+		printf("- Pressione ENTER para validar a palavra\n");
+		gotoxy(30,15);
+		printf("- Você tem 60 segundos para jogar\n");
+		
+		gotoxy(40,20);
+		printf("Pressione qualquer tecla para voltar...\n");
+		getch();
+	}
+
+	void desenharSelecionarIdioma() {
+	    clrscr();
+	    textcolor(GREEN);
+	    gotoxy(50,10);
+	    printf("=-= ESCOLHA O IDIOMA =-=\n\n");
+	    
+	    gotoxy(50,12);
+	    printf("1. Português\n");
+	    gotoxy(50,13);
+	    printf("2. Inglês\n");
+	    
+	    gotoxy(50,15);
+	    printf("Escolha uma opção: ");
+	}
+
+	void desenharTelaJogo() {
+	    clrscr();
+	    textcolor(GREEN);
+	    gotoxy(40,5);
+	    printf("=-= JOGO TORCIDO =-=\n\n");
+	    
+	    gotoxy(30,7);
+	    printf("Palavra Embaralhada: %s\n", palavraEmbaralhada);
+	    
+	    gotoxy(30,8);
+	    printf("Pontuação: %d\n", pontuacao);
+
+	    gotoxy(30,9); 
+	    printf("Tempo Restante: %d segundos\n\n", tempoRestante);
+
+	    gotoxy(30,11); 
+	    printf("Palavra Digitada: "); 
+	    for (int i = 0; i < comprimentoPalavraDigitada; i++) { 
+	        printf("%c", palavraDigitada[i]); 
+	    }
+	}
+
+	void ganharJogo() {
+	    clrscr();
+	    textcolor(GREEN);
+
+	    gotoxy(40,7); 
+	    printf(" _ _   ___   _ _   _ _ _   _   _ _ "); 
+	    gotoxy(40,8); 
+	    printf("| | || . || | | | | | | || || \\ |"); 
+	    gotoxy(40,9); 
+	    printf("\\   /| || ' | | | | |   || ||   | "); 
+	    gotoxy(40,10); 
+	    printf(" |_| `___'`___' |__/_/ |_||_\\_|");
+
+	    for(int i=0; i<3; i++){
+	        gotoxy(53,13); 
+	        printf(" O "); 
+	        gotoxy(53,14); 
+	        printf("/|\\ "); 
+	        gotoxy(53,15); 
+	        printf("/ \\"); 
+	        Sleep(500);
+
+	        gotoxy(53,13); 
+	        printf("\\O/"); 
+	        gotoxy(53,14); 
+	        printf("| "); 
+	        gotoxy(53,15); 
+	        printf("/ \\ "); 
+	        Sleep(500); 
+	    }
+
+	    gotoxy(45,20); 
+	    printf("Parabéns! Você venceu!"); 
+	    
+	    // Espera um tempo para que o jogador possa ler a mensagem
+	    Sleep(2000);  
+	    
+	    getch(); 
+	}
+
+	void perderJogo() { 
+	    clrscr(); 
+	    textcolor(GREEN);
+
+	    gotoxy(40,10); 
+	    printf(" ___   ___   __ __   ___   ___   _ _   ___   ___ "); 
+	    gotoxy(41,11);  
+	    printf("/  _> | . || \\ \\\\ || __> | . || | || __>| . \\\\ ");  
+	    gotoxy(42,12);  
+	    printf("| <_/\\|   ||     || _> | | || ' || _> |   /");  
+	    gotoxy(43,13);  
+	    printf("'____/|_|_||_|_|_||___> `___'|__/ |___>|_\\\\_\\\\ \n\n");
+
+	    // Exibir a palavra original
+	    gotoxy(44,14);  
+	    printf("Tempo esgotado! A palavra era: %s\n", palavraOriginal);  
+	    
+	    // Espera um tempo para que o jogador possa ler a mensagem
+	    Sleep(2000);  
+
+	    getch(); // Espera o jogador pressionar uma tecla
+	}
+
+public:
+	JogoTorcido() { 
+	srand(time(nullptr)); 
+
+	pontuacao = 0; 
+
+	tempoRestante = 60; 
+
+	comprimentoPalavraDigitada = 0; 
+
+	inicializarFila(filaPalavras); 
+
+}
+
+void iniciar() { 
+
+	while (true) { 
+
+	NomeDoJogo(); 
+
+	desenharTelaMenu(); 
+
+	char opcao = getch(); 
+
+	switch (opcao) { 
+
+	case '1': { 
+
+	desenharSelecionarIdioma(); 
+
+	char idiomaSelecionado = getch(); 
+
+	if (idiomaSelecionado == '1' || idiomaSelecionado == '2') { 
+
+	jogar(idiomaSelecionado == '1' ? 0 : 1); 
+
+} 
+
+break; 
+
+} 
+
+case '2': { 
+
+desenharTelaAjuda(); 
+
+break; 
+
+} 
+
+case '3': return; 
+
+} 
+
+} 
+
+}
+
+void jogar(int idioma) { 
+
+pontuacao = 0; 
+
+tempoRestante = 60; 
+
+comprimentoPalavraDigitada = 0;
+
+selecionarPalavraAleatoria(idioma); 
+
+embaralharPalavra();
+
+while (tempoRestante > 0) { 
+
+desenharTelaJogo();
+
+if (kbhit()) { 
+
+char tecla = getch();
+
+if (tecla == '\r') { // Enter
+processarPalavra();
+} else if ((tecla >= 'A' && tecla <= 'Z') ||
+(tecla >= 'a' && tecla <= 'z')) {
+
+if (comprimentoPalavraDigitada < sizeof(palavraDigitada) - 1) {
+
+palavraDigitada[comprimentoPalavraDigitada++] = toupper(tecla);
+
+palavraDigitada[comprimentoPalavraDigitada] = '\0';
+
+}
+} else if (tecla == '\b') { // Backspace
+if (comprimentoPalavraDigitada > 0) {
+
+comprimentoPalavraDigitada--;
+
+palavraDigitada[comprimentoPalavraDigitada] = '\0';
+
+}
+}
+}
+
+static clock_t ultimoTempo = clock();
+
+if ((clock() - ultimoTempo) / CLOCKS_PER_SEC >= 1) {
+
+tempoRestante--;
+
+ultimoTempo = clock();
+
+}
+
+if (tempoRestante <= 0) {
+
+perderJogo();
+
+break;
+
+}
+
+}
+
+ganharJogo();
+
+}
+
+void processarPalavra() {
+
+if (comprimentoPalavraDigitada >= 3) {
+
+bool palavraValida = false;
+
+// Verificar se a palavra digitada é a palavra original
+if (strcmp(palavraDigitada,palavraOriginal)==0){
+
+pontuacao+=100;
+
+enfileirar(filaPalavras,palavraDigitada);
+
+// Limpar a entrada do jogador
+comprimentoPalavraDigitada=0;
+
+// Selecionar uma nova palavra aleatória
+selecionarPalavraAleatoria((strcmp(palavraOriginal,"portugues.txt")==0)?0:1);
+
+embaralharPalavra();
+
+} else {
+// Palavra não é válida
+cout << "A palavra digitada não é válida!" << endl;
+// Limpar a entrada do jogador
+comprimentoPalavraDigitada=0;
+
+}
+}
+}
+};
+
+int main() {
+
+setlocale(LC_ALL,"portuguese");
+
+JogoTorcido jogo;
+
+jogo.iniciar();
+
+return 0;
+
+}
